@@ -841,6 +841,7 @@ the NVIDIA Tesla K80 that was used on Azure VM.
 density
 
 ![8](docs/assets/Figure8.png)
+
 *Figure 8*. Floyd-Warshall Algorithm running on Azure VM with 15% graph
 density
 
@@ -883,9 +884,11 @@ concluded was without doubts the CUDA Blocked Memory optimization. The
 results of this comparison are shown in Figure 9 and 10 respectively.
 
 ![9](docs/assets/Figure9.png)
+
 *Figure 9*. Local CPU vs Azure CPU Comparison
 
 ![10](docs/assets/Figure10.png)
+
 *Figure 10*. Local GPU vs Azure GPU (Blocked Memory Optimization)
 Comparison
 
@@ -916,8 +919,8 @@ Floyd-Warshall algorithm in a local environment with 2 seconds time
 constraint.
 
 ![11](docs/assets/Figure11.png)
-*Figure 11*. Running the Floyd-Warshall algorithm in a local environment
-under 2 seconds constraint
+
+*Figure 11*. Running the Floyd-Warshall algorithm in a local environment under 2 seconds constraint
 
 As seen from the results, the CUDA Blocked memory optimization passes
 the 2000 vertices mark in just 2 seconds, while reaching the 500
@@ -931,6 +934,7 @@ program on Azure VM using only CUDA Blocked Memory optimization. The
 results are shown in the Figure 12.
 
 ![12](docs/assets/Figure12.png)
+
 *Figure 12*. Running the Floyd-Warshall algorithm using CUDA Blocked
 Memory Optimization until the program crashed
 
