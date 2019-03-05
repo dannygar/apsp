@@ -174,20 +174,20 @@ to the corresponding matrix position.
 *Figure 1*. An algorithm demonstration
 
 The given pseudo-code of the algorithm simply means that, if the sum of
-new distances between $\mathbf{v}$ and $\mathbf{u}$ vertices when the $\mathbf{k}$ vertex is placed between them is smaller than the older distance, then the $\mathbf{k}$ vertex must be placed in the corresponding index in the $\mathbf{\text{Path}}$ matrix and the corresponding distance value in the $\mathbf{\text{Cost}}$ matrix must be updated with the new value.
+new distances between $v$ and $\mathbf{u}$ vertices when the $\mathbf{k}$ vertex is placed between them is smaller than the older distance, then the $\mathbf{k}$ vertex must be placed in the corresponding index in the $\mathbf{\text{Path}}$ matrix and the corresponding distance value in the $\mathbf{\text{Cost}}$ matrix must be updated with the new value.
 
 The initial case of the $\mathbf{\text{Cost}}$ and
 $\mathbf{\text{Path}}$ matrices ($\mathbf{\text{Cost}_0}$ and
 $\mathbf{\text{Path}_0}$) are shown in the **Table 1:**
 
  | $\mathbf{\text{Cost}_0}$ | **1** | **2** | **3** | **4** | **5** | $\mathbf{\text{Path}_0}$ | **1** | **2** | **3** | **4** | **5** |
- | ------------------------ | ----- | ----- | ----- | ----- | ----- | ------------------------ | ----- | ----- | ----- | ----- | ----- |  |
- |                          |
- | **1**                    | 0     | 5     | ∞     | 2     | ∞     | **1**                    | 0     | 1     | -1    | 1     | -1    |
- | **2**                    | ∞     | 0     | 2     | ∞     | ∞     | **2**                    | -1    | 0     | 2     | -1    | -1    |
- | **3**                    | 3     | ∞     | 0     | ∞     | 7     | **3**                    | 3     | -1    | 0     | -1    | 3     |
- | **4**                    | ∞     | ∞     | 4     | 0     | 1     | **4**                    | -1    | -1    | 4     | 0     | 4     |
- | **5**                    | 1     | 3     | ∞     | ∞     | 0     | **5**                    | 5     | 5     | -1    | -1    | 0     |
+-|--------------------------|-------|-------|-------|-------|-------|--------------------------|-------|-------|-------|-------|-------|
+ |
+ | **1** | | 0 | | 5 | | ∞ | | 2 | | ∞ | | **1** | | 0 | | 1 | | -1 | | 1 | | -1 | |
+ | **2** | | ∞ | | 0 | | 2 | | ∞ | | ∞ | | **2** | | -1 | | 0 | | 2 | | -1 | | -1 | |
+ | **3** | | 3 | | ∞ | | 0 | | ∞ | | 7 | | **3** | | 3 | | -1 | | 0 | | -1 | | 3 | |
+ | **4** | | ∞ | | ∞ | | 4 | | 0 | | 1 | | **4** | | -1 | | -1 | | 4 | | 0 | | 4 | |
+ | **5** | | 1 | | 3 | | ∞ | | ∞ | | 0 | | **5** | | 5 | | 5 | | -1 | | -1 | | 0 | |
 
 *Table 1*. $\mathbf{\text{Cost}_0}$ and $\mathbf{\text{Path}_0}$ matrices
 
