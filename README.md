@@ -158,7 +158,7 @@ between X and Z is depicted as min(distance(X,Z), then this distance is
 equal to the sum of the distance between X and Y (distance(X,Y)) and the distance between Y and Z (distance(Y,Z)). The algorithm is the
 systematic application of this process for the whole graph.
 
-In order to make the description of the algorithm easier, a simple graph given in the **Fig. 1** is used to show iterations step by step. The algorithm computes two matrices: The $$Cost$$ matrix which includes the distances between each connected vertex-pair, and the $\mathbf{\text{Path}}$ matrix, which includes the sequential
+In order to make the description of the algorithm easier, a simple graph given in the **Fig. 1** is used to show iterations step by step. The algorithm computes two matrices: The $\mathbf{\text{Cost}}$ matrix which includes the distances between each connected vertex-pair, and the $\mathbf{\text{Path}}$ matrix, which includes the sequential
 relationship between vertices, i.e. it holds the last vertex before the
 terminal one, if it exists, in the shortest path between two vertices.
 Since the $\mathbf{\text{Cost}}$ matrix is composed of direct distance
