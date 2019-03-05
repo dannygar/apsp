@@ -173,8 +173,10 @@ to the corresponding matrix position.
 
 *Figure 1*. An algorithm demonstration
 
+ h<sub>&theta;</sub>(x) = &theta;<sub>o</sub> x + &theta;<sub>1</sub>x
 The given pseudo-code of the algorithm simply means that, if the sum of
 new distances between $v$ and $\mathbf{u}$ vertices when the $\mathbf{k}$ vertex is placed between them is smaller than the older distance, then the $\mathbf{k}$ vertex must be placed in the corresponding index in the $\mathbf{\text{Path}}$ matrix and the corresponding distance value in the $\mathbf{\text{Cost}}$ matrix must be updated with the new value.
+<img src="https://latex.codecogs.com/svg.latex?\Large&space;x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}" title="\Large x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}" />
 
 The initial case of the $\mathbf{\text{Cost}}$ and
 $\mathbf{\text{Path}}$ matrices ($\mathbf{\text{Cost}_0}$ and
