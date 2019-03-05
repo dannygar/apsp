@@ -1,0 +1,198 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <CUDAPropsPath Condition="'$(CUDAPropsPath)'==''">$(VCTargetsPath)\BuildCustomizations</CUDAPropsPath>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{9FD5137B-E561-4F73-A2FA-804DCB6F6D05}</ProjectGuid>
+    <RootNamespace>APSP</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <CudaToolkitCustomDir />
+    <ProjectName>APSP</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup>
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(CUDAPropsPath)\CUDA 10.0.props" />
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <IntDir>$(Platform)/$(Configuration)/</IntDir>
+    <IncludePath>$(IncludePath)</IncludePath>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules />
+    <CodeAnalysisRuleAssemblies />
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>./;$(CudaToolkitDir)/include;cuda/common/inc;$(CudaToolkitIncludeDir);</AdditionalIncludeDirectories>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>cudadevrt.lib;cudart_static.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CudaToolkitLibDir);</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)/APSP.exe</OutputFile>
+    </Link>
+    <CudaCompile>
+      <CodeGeneration>compute_35,sm_35;compute_37,sm_37;compute_50,sm_50;compute_52,sm_52;compute_60,sm_60;compute_61,sm_61;compute_70,sm_70;compute_75,sm_75</CodeGeneration>
+      <AdditionalOptions>-Xcompiler "/wd 4819" %(AdditionalOptions)</AdditionalOptions>
+      <Include>./;cuda/common/inc</Include>
+      <Defines>WIN32</Defines>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
+    </Link>
+    <CudaCompile>
+      <TargetMachinePlatform Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">64</TargetMachinePlatform>
+      <Runtime Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MTd</Runtime>
+      <GenerateRelocatableDeviceCode Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateRelocatableDeviceCode>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <CudaCompile>
+      <Runtime>MTd</Runtime>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+    </Link>
+    <CudaCompile>
+      <Runtime>MT</Runtime>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="src\floyd-warshall-cpu.cpp" />
+    <ClCompile Include="src\floyd-warshall-gpu-blocked.cpp" />
+    <ClCompile Include="src\floyd-warshall-gpu-coa.cpp" />
+    <ClCompile Include="src\floyd-warshall-gpu-shared.cpp" />
+    <ClCompile Include="src\floyd-warshall-gpu.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\test.cpp" />
+    <ClCompile Include="src\utilities.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="cuda\common\inc\drvapi_error_string.h" />
+    <ClInclude Include="cuda\common\inc\dynlink_d3d10.h" />
+    <ClInclude Include="cuda\common\inc\dynlink_d3d11.h" />
+    <ClInclude Include="cuda\common\inc\exception.h" />
+    <ClInclude Include="cuda\common\inc\GL\freeglut.h" />
+    <ClInclude Include="cuda\common\inc\GL\freeglut_ext.h" />
+    <ClInclude Include="cuda\common\inc\GL\freeglut_std.h" />
+    <ClInclude Include="cuda\common\inc\GL\glew.h" />
+    <ClInclude Include="cuda\common\inc\GL\glext.h" />
+    <ClInclude Include="cuda\common\inc\GL\glut.h" />
+    <ClInclude Include="cuda\common\inc\GL\glxew.h" />
+    <ClInclude Include="cuda\common\inc\GL\glxext.h" />
+    <ClInclude Include="cuda\common\inc\GL\wglew.h" />
+    <ClInclude Include="cuda\common\inc\GL\wglext.h" />
+    <ClInclude Include="cuda\common\inc\helper_cuda.h" />
+    <ClInclude Include="cuda\common\inc\helper_cuda_drvapi.h" />
+    <ClInclude Include="cuda\common\inc\helper_cusolver.h" />
+    <ClInclude Include="cuda\common\inc\helper_functions.h" />
+    <ClInclude Include="cuda\common\inc\helper_gl.h" />
+    <ClInclude Include="cuda\common\inc\helper_image.h" />
+    <ClInclude Include="cuda\common\inc\helper_math.h" />
+    <ClInclude Include="cuda\common\inc\helper_string.h" />
+    <ClInclude Include="cuda\common\inc\helper_timer.h" />
+    <ClInclude Include="cuda\common\inc\multithreading.h" />
+    <ClInclude Include="cuda\common\inc\nvMath.h" />
+    <ClInclude Include="cuda\common\inc\nvMatrix.h" />
+    <ClInclude Include="cuda\common\inc\nvQuaternion.h" />
+    <ClInclude Include="cuda\common\inc\nvrtc_helper.h" />
+    <ClInclude Include="cuda\common\inc\nvShaderUtils.h" />
+    <ClInclude Include="cuda\common\inc\nvVector.h" />
+    <ClInclude Include="cuda\common\inc\param.h" />
+    <ClInclude Include="cuda\common\inc\paramgl.h" />
+    <ClInclude Include="cuda\common\inc\rendercheck_d3d10.h" />
+    <ClInclude Include="cuda\common\inc\rendercheck_d3d11.h" />
+    <ClInclude Include="cuda\common\inc\rendercheck_d3d9.h" />
+    <ClInclude Include="cuda\common\inc\rendercheck_gl.h" />
+    <ClInclude Include="cuda\common\inc\rendercheck_gles.h" />
+    <ClInclude Include="cuda\common\inc\timer.h" />
+    <ClInclude Include="cuda\inc\Floyd.cuh" />
+    <ClInclude Include="inc\algorithm.h" />
+    <ClInclude Include="inc\floydwarshall.h" />
+    <ClInclude Include="inc\evaluator.h" />
+    <ClInclude Include="inc\test.h" />
+    <ClInclude Include="inc\utilities.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="cuda\src\Floyd-blk.cu" />
+    <CudaCompile Include="cuda\src\Floyd-coa.cu" />
+    <CudaCompile Include="cuda\src\Floyd-sh.cu" />
+    <CudaCompile Include="cuda\src\Floyd.cu" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(CUDAPropsPath)\CUDA 10.0.targets" />
+  </ImportGroup>
+</Project>
