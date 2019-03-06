@@ -27,7 +27,7 @@
 
 //Time Functions
 #include <Windows.h>
-#include <MMSystem.h>
+#include <mmsystem.h>
 
 #pragma comment(lib, "winmm.lib")
 
@@ -57,7 +57,7 @@ void PrintPath(int *path, int vertex, int edge, unsigned int vertices)
 		return;
 
 	PrintPath(path, vertex, path[vertex * vertices + edge], vertices);
-	printf("%d ", path[vertex * vertices + edge]);
+	std::cout << path[vertex * vertices + edge] << " ";
 }
 
 
@@ -74,7 +74,7 @@ void PrintMatrix(int* matrix, unsigned int vertices)
 				if (matrix[v * vertices + u] == INT_MAX)
 					std::cout << setw(5) << "INF";
 				else
-					printf("%5d", matrix[v * vertices + u]);
+					std::cout << setw(5) << matrix[v * vertices + u];
 			}
 			std::cout << std::endl;
 		}
@@ -104,7 +104,7 @@ void PrintSolution(Evaluator* eval, bool verbose)
 				if (eval->Cost[i0] == INT_MAX)
 					std::cout << setw(5) << "INF";
 				else
-					printf("%5d", eval->Cost[i0]);
+					std::cout << setw(5) << eval->Cost[i0];
 			}
 			std::cout << std::endl;
 			rows++;
@@ -132,7 +132,6 @@ void PrintSolution(Evaluator* eval, bool verbose)
 				const int i0 = v * eval->Vertices + u;
 				if (u != v && eval->Path[i0] != -1 && eval->Path[i0] != INF)
 				{
-					printf("Shortest Path from vertex %d to vertex %d is (%d ", v, u, v);
 					std::cout << "Shortest Path from vertex " << v <<
 						" to vertex " << u << " is (" << v << " ";
 					PrintPath(eval->Path, v, u, eval->Vertices);
@@ -162,7 +161,7 @@ void GenerateRandomGraph(int* graph, int vertices, int density, int range) {
 				graph[v * vertices + e] = 0;
 				continue;
 			}
-			auto pr = rand() % prange;
+			const auto pr = rand() % prange;
 			graph[v * vertices + e] = pr == 0 ? ((rand() % range) + 1) : INF;//set edge random edge weight to random value, or to INF
 		}
 	}
@@ -176,7 +175,7 @@ bool CmpArray(const int *l, const int *r, const size_t eleNum)
 	for (unsigned int i = 0; i < eleNum; i++)
 		if (l[i] != r[i])
 		{
-			printf("ERROR: l[%d] = %d, r[%d] = %d\n", i, l[i], i, r[i]);
+			std::cout << "ERROR: l[" << i << "] = " << l[i] << ", r[" << i << "] = " << r[i] << std::endl;
 			return false;
 		}
 	return true;

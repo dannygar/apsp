@@ -30,7 +30,7 @@ using namespace std::chrono;
 ///////////////////////////////////////////////////////////////////////////////////////////
 float FloydWarshall::RunCudaFW(Evaluator* eval)
 {
-	eval->Host = new Processor(CUDA_NAIVE_FW);
+	eval->Host = { CUDA_NAIVE_FW, "CUDA Linear Optimization" };
 
 	// Run Floyd-Warshall with naive CUDA optimization
 	return dynamic_cast<FloydWarshall*>(eval)->ComputeCudaNaive();
@@ -38,7 +38,7 @@ float FloydWarshall::RunCudaFW(Evaluator* eval)
 
 
 // --- Floyd-Warshall on GPU
-float FloydWarshall::ComputeCudaNaive()
+float FloydWarshall::ComputeCudaNaive() const
 {
 	// initialize Cost[] and Path[]
 	for (unsigned int v = 0; v < Vertices; v++)

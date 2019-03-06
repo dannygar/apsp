@@ -25,27 +25,8 @@ typedef enum {
 
 
 
-class Processor final
+struct Processor final
 {
-public:
-
-	explicit Processor(APSPAlgorithm type)
-	{
-		Type = type;
-		if (Type == NAIVE_FW)
-			Name = "CPU";
-		else if (Type == CUDA_NAIVE_FW)
-			Name = "CUDA Linear Optimization";
-		else if (Type == CUDA_COALESCED_FW)
-			Name = "CUDA Coalesced Memory Optimization";
-		else if (Type == CUDA_SHARED_MEM_FW)
-			Name = "CUDA Shared Memory Optimization";
-		else if (Type == CUDA_BLOCKED_FW)
-			Name = "CUDA Blocked Memory Optimization";
-		else
-			Name = "Unknown";
-	}
-
 	APSPAlgorithm		Type{};
 	std::string			Name{};
 };

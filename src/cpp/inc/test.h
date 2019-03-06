@@ -22,12 +22,21 @@ class Test final
 private:
 	bool	pass_;
 	float	elapsedTime_{};
-	int		algorithmCount_;
 
 	public:
 		Test() : pass_(false) {};
 
-		~Test();
+		Test(const Test& cp) :
+			Device(cp.Device),
+			IsGpu(cp.IsGpu),
+			Verbose(cp.Verbose),
+			TargetLoop(cp.TargetLoop),
+			OutputFile(cp.OutputFile)
+		{
+			pass_ = false;
+		}
+
+		~Test() = default;
 
 		int				Device{};
 		bool			IsGpu{};
@@ -37,7 +46,7 @@ private:
 
 
 		bool RunTest(Evaluator* eval);
-		void SaveResults(Evaluator* eval);
+		void SaveResults(Evaluator* eval) const;
 
 		static bool EvaluateAlgorithm(Evaluator* eval, float elapsedTime);
 		static void SavePerformanceMetrics(Evaluator* eval, const float elapsedTime);

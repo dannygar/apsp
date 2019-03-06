@@ -33,8 +33,8 @@ class Evaluator
 public:
 	virtual ~Evaluator()
 	{
-		if (InitCounter > 0)
-			ReleaseMemory();
+		//if (InitCounter > 0)
+		ReleaseMemory();
 	};
 
 	Evaluator(unsigned int vertices, unsigned int density, unsigned int device, unsigned int targetTime, std::string name)
@@ -55,23 +55,40 @@ public:
 		TargetTime(other.TargetTime),
 		Host(other.Host)
 	{
-		Cost = new int[other.Vertices * other.Vertices * sizeof(int)];
-		*Cost = *other.Cost;
+		//Cost = new int[other.Vertices * other.Vertices * sizeof(int)];
+		//Cost = std::unique_ptr<int[]>();
+		std:unique_ptr<int[]> p1(new int[other.Vertices * other.Vertices * sizeof(int)]);
+		Cost = std::move(p1);
+		for (unsigned int i = 0; i < Vertices; ++i)
+		{
+			Cost[i * Vertices + i] = other.Cost[i * Vertices + i];
+		}
 
-		Path = new int[other.Vertices * other.Vertices * sizeof(int)];
-		*Path = *other.Path;
-
+		std:unique_ptr<int[]> p2(new int[other.Vertices * other.Vertices * sizeof(int)]);
+		Path = std::move(p2);
+		for (unsigned int i = 0; i < Vertices; ++i)
+		{
+			Path[i * Vertices + i] = other.Path[i * Vertices + i];
+		}
 	}
 
 	//Array initialization
-	void InitArrays(int* graph)
+	void InitArrays(std::shared_ptr<int[]> graph)
 	{
 		InitCounter++;
 		const int memSize = sizeof(int) * Vertices * Vertices;
-		Cost = static_cast<int*>(malloc(memSize));
-		Path = static_cast<int*>(malloc(memSize));
-		memcpy(Cost, graph, memSize);
-		memcpy(Path, graph, memSize);
+		//Cost = static_cast<int*>(malloc(memSize));
+		//Path = static_cast<int*>(malloc(memSize));
+		//memcpy(Cost, graph, memSize);
+		//memcpy(Path, graph, memSize);
+		std:unique_ptr<int[]> p1(new int[memSize]);
+		Cost = std::move(p1);
+		Cost = graph;
+		//for (unsigned int i = 0; i < Vertices; ++i)
+		//{
+		//	Cost[i * Vertices + i] = graph[i * Vertices + i];
+		//}
+
 
 		for (unsigned int i = 0; i < Vertices; ++i)
 		{
@@ -87,6 +104,7 @@ public:
 			free(Path);
 			InitCounter--;
 		}
+		cout << "Init Counter: " << InitCounter << endl;
 	}
 
 	string	Name{};
@@ -95,9 +113,8 @@ public:
 
 	// cost[] and parent[] stores shortest-path 
 	// (shortest-cost/shortest route) information
-	// TODO: Replaced with the smart pointers
-	int*	Cost{};
-	int*	Path{};
+	std::shared_ptr<int[]>	Cost{};
+	std::shared_ptr<int[]>	Path{};
 
 	// Vertices Count
 	unsigned int	Vertices{};

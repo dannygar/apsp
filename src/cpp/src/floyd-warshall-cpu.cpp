@@ -29,15 +29,15 @@ using namespace std;
 ///////////////////////////////////////////////////////////////////////////////////////////
 float FloydWarshall::RunNaiveFW(Evaluator* eval)
 {
-	eval->Host = new Processor(NAIVE_FW);
+	eval->Host = { NAIVE_FW, "CPU" };
 
 	// Run Floyd-Warshall with naive CPU optimization
-	return dynamic_cast<FloydWarshall*>(eval)->ComputeCPUNaive();
+	return dynamic_cast<FloydWarshall*>(eval)->ComputeCpuNaive();
 }
 
 
 // --- Floyd-Warshall on CPU
-float FloydWarshall::ComputeCPUNaive()
+float FloydWarshall::ComputeCpuNaive() const
 {
 
 	// initialize Cost[] and Path[]
@@ -57,9 +57,9 @@ float FloydWarshall::ComputeCPUNaive()
 	}
 
 
-	UINT wTimerRes = 0;
-	bool init = InitMMTimer(wTimerRes);
-	DWORD startTime = timeGetTime();
+	const UINT wTimerRes = 0;
+	const bool init = InitMMTimer(wTimerRes);
+	const DWORD startTime = timeGetTime();
 
 	// Run Floyd Warshall algorithm
 	// Cost[] and Path[] stores shortest-Path 
@@ -70,9 +70,9 @@ float FloydWarshall::ComputeCPUNaive()
 		{
 			for (unsigned int u = 0; u < Vertices; u++)
 			{
-				int i0 = v * Vertices + u;
-				int i1 = v * Vertices + k;
-				int i2 = k * Vertices + u;
+				const int  i0 = v * Vertices + u;
+				const int  i1 = v * Vertices + k;
+				const int  i2 = k * Vertices + u;
 				// If vertex k is on the shortest Path from v to u,
 				// then update the value of Cost[v][u], Path[v][u]
 				if (Cost[i1] != INF && Cost[i2] != INF)
@@ -98,7 +98,7 @@ float FloydWarshall::ComputeCPUNaive()
 
 	// Measure the elapsed time
 	const DWORD endTime = timeGetTime();
-	float elapsedTime = static_cast<float>(endTime - startTime);
+	const float elapsedTime = static_cast<float>(endTime - startTime);
 	DestroyMMTimer(wTimerRes, init);
 
 	return elapsedTime;

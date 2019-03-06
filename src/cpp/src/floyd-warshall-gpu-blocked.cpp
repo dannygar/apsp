@@ -30,11 +30,12 @@ using namespace std::chrono;
 ///////////////////////////////////////////////////////////////////////////////////////////
 float FloydWarshall::RunCudaFWBlocked(Evaluator* eval)
 {
-	eval->Host = new Processor(CUDA_BLOCKED_FW);
+	eval->Host = { CUDA_BLOCKED_FW, "CUDA Blocked Memory Optimization" };
 
 	// Run Floyd-Warshall with blocked memory optimization
 	return dynamic_cast<FloydWarshall*>(eval)->ComputeCudaBlockedMem();
 }
+
 
 // --- Floyd-Warshall with blocked memory optimization
 float FloydWarshall::ComputeCudaBlockedMem() const

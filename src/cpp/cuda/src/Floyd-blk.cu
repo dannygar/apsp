@@ -28,14 +28,14 @@ void Floyd_Warshall_Blocked(int *matrix, int* path, unsigned int size, float* ti
 	cudaEventCreate(&stop);
 
 	// Start CUDA Timer
-	cudaEventRecord(start, 0);
+	cudaEventRecord(start, nullptr);
 
 	// allocate memory
 	int *matrixOnGPU;
 	int *pathOnGPU;
-	cudaMalloc((void **)&matrixOnGPU, sizeof(int)*size*size);
+	cudaMalloc(reinterpret_cast<void **>(&matrixOnGPU), sizeof(int)*size*size);
 	cudaMemcpy(matrixOnGPU, matrix, sizeof(int)*size*size, cudaMemcpyHostToDevice);
-	cudaMalloc((void **)&pathOnGPU, sizeof(int)*size*size);
+	cudaMalloc(reinterpret_cast<void **>(&pathOnGPU), sizeof(int)*size*size);
 	cudaMemcpy(pathOnGPU, path, sizeof(int)*size*size, cudaMemcpyHostToDevice);
 
 	// dimensions
@@ -47,7 +47,7 @@ void Floyd_Warshall_Blocked(int *matrix, int* path, unsigned int size, float* ti
 	// run kernel
 	for (int k = 0; k < stages; ++k)
 	{
-		int base = BLCK_TILE_WIDTH * k;
+		const int base = BLCK_TILE_WIDTH * k;
 		phase1 << < phase1Grid, blockSize >> > (matrixOnGPU, pathOnGPU, size, base);
 		phase2 << < phase2Grid, blockSize >> > (matrixOnGPU, pathOnGPU, size, k, base);
 		phase3 << < phase3Grid, blockSize >> > (matrixOnGPU, pathOnGPU, size, k, base);
@@ -59,7 +59,7 @@ void Floyd_Warshall_Blocked(int *matrix, int* path, unsigned int size, float* ti
 
 
 	// Stop CUDA Timer
-	cudaEventRecord(stop, 0);
+	cudaEventRecord(stop, nullptr);
 	//Synchronize GPU with CPU
 	cudaEventSynchronize(stop);
 
@@ -87,8 +87,8 @@ void Floyd_Warshall_Blocked(int *matrix, int* path, unsigned int size, float* ti
 __global__ void phase1(int *matrix, int* path, int size, int base)
 {
 	// compute indexes
-	int v = threadIdx.y;
-	int u = threadIdx.x;
+	const int v = threadIdx.y;
+	const int u = threadIdx.x;
 
 	// computes the index for a thread
 	const int index = (base + v) * size + (base + u);
@@ -153,8 +153,8 @@ __global__ void phase2(int *matrix, int* path, int size, int stage, int base)
 		u = BLCK_TILE_WIDTH * blockIdx.x + threadIdx.x;
 		v = v_prim;
 	}
-	int index = v * size + u;
-	int index_prim = v_prim * size + u_prim;
+	const int index = v * size + u;
+	const int index_prim = v_prim * size + u_prim;
 
 	// loads data from global memory to shared memory
 	__shared__ int ownMatrix[BLCK_TILE_WIDTH][BLCK_TILE_WIDTH];

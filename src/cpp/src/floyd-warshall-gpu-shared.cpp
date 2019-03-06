@@ -30,7 +30,7 @@ using namespace std::chrono;
 ///////////////////////////////////////////////////////////////////////////////////////////
 float FloydWarshall::RunCudaFWShared(Evaluator* eval)
 {
-	eval->Host = new Processor(CUDA_SHARED_MEM_FW);
+	eval->Host = { CUDA_SHARED_MEM_FW, "CUDA Shared Memory Optimization" };
 
 	// Run Floyd-Warshall with shared memory optimization
 	return dynamic_cast<FloydWarshall*>(eval)->ComputeCudaSharedMem();

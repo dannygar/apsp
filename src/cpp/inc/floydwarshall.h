@@ -25,11 +25,11 @@ public:
 	 * \param vertices
 	 * \param density
 	 * \param device
+	 * \param targetTime
 	 */
 	FloydWarshall(unsigned int vertices, unsigned int density, unsigned int device, unsigned int targetTime) :
-		Evaluator(vertices, density, device, targetTime)
+		Evaluator(vertices, density, device, targetTime, "Floyd-Warshall")
 	{
-		Name = "Floyd-Warshall";
 	}
 
 	// Static pointers to the evaluator's entry points
@@ -43,8 +43,8 @@ public:
 	 * init graph matrix should be point by graph in data, results will be
 	 * store in prep (predecessors) and in graph (value for shortest paths)
 	 */
-	float ComputeCPUNaive() override;
-	float ComputeCudaNaive() override;
+	float ComputeCpuNaive() const;
+	float ComputeCudaNaive() const;
 	float ComputeCudaCoalescedMem() const;
 	float ComputeCudaSharedMem() const;
 	float ComputeCudaBlockedMem() const;

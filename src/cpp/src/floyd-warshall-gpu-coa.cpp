@@ -30,7 +30,7 @@ using namespace std::chrono;
 ///////////////////////////////////////////////////////////////////////////////////////////
 float FloydWarshall::RunCudaFWCoa(Evaluator* eval)
 {
-	eval->Host = new Processor(CUDA_COALESCED_FW);
+	eval->Host = { CUDA_COALESCED_FW, "CUDA Coalesced Memory Optimization" };
 
 	// Run Floyd-Warshall with coalesced memory optimization
 	return dynamic_cast<FloydWarshall*>(eval)->ComputeCudaCoalescedMem();

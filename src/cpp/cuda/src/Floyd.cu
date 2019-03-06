@@ -26,14 +26,14 @@ void Floyd_Warshall(int *matrix, int* path, unsigned int size, float* time)
 	cudaEventCreate(&stop);
 
 	// Start CUDA Timer
-	cudaEventRecord(start, 0);
+	cudaEventRecord(start, nullptr);
 
 	// allocate memory
 	int *matrixOnGPU;
 	int *pathOnGPU;
-	cudaMalloc((void **)&matrixOnGPU, sizeof(int)*size*size);
+	cudaMalloc(reinterpret_cast<void **>(&matrixOnGPU), sizeof(int)*size*size);
 	cudaMemcpy(matrixOnGPU, matrix, sizeof(int)*size*size, cudaMemcpyHostToDevice);
-	cudaMalloc((void **)&pathOnGPU, sizeof(int)*size*size);
+	cudaMalloc(reinterpret_cast<void **>(&pathOnGPU), sizeof(int)*size*size);
 	cudaMemcpy(pathOnGPU, path, sizeof(int)*size*size, cudaMemcpyHostToDevice);
 
 	// dimension
@@ -48,7 +48,7 @@ void Floyd_Warshall(int *matrix, int* path, unsigned int size, float* time)
 	cudaMemcpy(path, pathOnGPU, sizeof(int)*size*size, cudaMemcpyDeviceToHost);
 
 	// Stop CUDA Timer
-	cudaEventRecord(stop, 0);
+	cudaEventRecord(stop, nullptr);
 	//Synchronize GPU with CPU
 	cudaEventSynchronize(stop);
 
@@ -67,17 +67,17 @@ void Floyd_Warshall(int *matrix, int* path, unsigned int size, float* time)
 __global__ void cudaKernel(int *matrix, int* path, int size, int k)
 {
 	// compute indexes
-	int v = blockIdx.y;
-	int u = blockIdx.x;
+	const int v = blockIdx.y;
+	const int u = blockIdx.x;
 
-	int i0 = v * size + u;
-	int i1 = v * size + k;
-	int i2 = k * size + u;
+	const int i0 = v * size + u;
+	const int i1 = v * size + k;
+	const int  i2 = k * size + u;
 
 	// read in dependent values
-	int i0_value = matrix[i0];
-	int i1_value = matrix[i1];
-	int i2_value = matrix[i2];
+	const int  i0_value = matrix[i0];
+	const int  i1_value = matrix[i1];
+	const int  i2_value = matrix[i2];
 
 
 	// Synchronize to make sure that all value are current
