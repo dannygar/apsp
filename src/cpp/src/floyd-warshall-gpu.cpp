@@ -38,21 +38,10 @@ float FloydWarshall::RunCudaFW(Evaluator* eval)
 
 
 // --- Floyd-Warshall on GPU
-float FloydWarshall::ComputeCudaNaive() const
+float FloydWarshall::ComputeCudaNaive()
 {
-	// initialize Cost[] and Path[]
-	for (unsigned int v = 0; v < Vertices; v++)
-	{
-		for (unsigned int u = 0; u < Vertices; u++)
-		{
-			if (v == u)
-				Path[v * Vertices + u] = 0;
-			else if (Cost[v * Vertices + u] != INF)
-				Path[v * Vertices + u] = v;
-			else
-				Path[v * Vertices + u] = -1;
-		}
-	}
+	/* Copy the initial matrices into the compute graph */
+	const auto graph = ReadData(Cost, Vertices);
 
 	float elapsedTime;
 
@@ -60,7 +49,10 @@ float FloydWarshall::ComputeCudaNaive() const
 	// Cost[] and parent[] stores shortest-Path 
 	// (shortest-Cost/shortest route) information
 	/* Compute APSP */
-	Floyd_Warshall(Cost, Path, Vertices, &elapsedTime);
+	Floyd_Warshall(graph, &elapsedTime);
+
+	// Copy the results into the original arrays
+	CopyResults(graph);
 
 	return elapsedTime;
 }

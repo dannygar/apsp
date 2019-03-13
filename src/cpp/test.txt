@@ -1,0 +1,9 @@
+Floyd-Warshall Performance = 12.9776 vertices/sec, Time = 308.224(ms), Processor = Floyd-Warshall
+    0   -1   -2    0
+    4    0    2    4
+    5    1    0    2
+    3   -1    1    0
+
+Shortest Path from vertex 0 to vertex 1 is (0 1) with the cost of: -1
+Shortest Path from vertex 0 to vertex 2 is (0 2) with the cost of: -2
+Shortest Path from vertex 0 to vertex 3 is (0 3) with the cost of: 0

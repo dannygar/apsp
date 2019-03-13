@@ -9,17 +9,57 @@
  *
  * Floyd-Warshall with coalesced memory optimization
  */
+#include <memory>  // std::shared_ptr, std::unique_ptr 
 #include "cuda.h"
 #include <cuda_runtime.h>
+#include <helper_cuda.h>
+#include <iostream>
+#include <iomanip>
+
 #include "device_launch_parameters.h"
 
 #include "cuda/inc/Floyd.cuh"
 #include "inc/test.h"
 
 
-void Floyd_Warshall_COA(int *matrix, int* path, unsigned int size, float* time)
+ //run CUDA kernel
+static __global__
+void cudaKernel_coa(int* mat, int* path, int k, int size, int segment_size)
+{
+	// compute indexes
+	int idx = threadIdx.x + blockIdx.x * blockDim.x;
+
+	// calculate shortest path
+	if (segment_size*idx < size*size) {
+		for (int offset = 0; offset < segment_size && offset + segment_size * idx < size*size; ++offset) {
+			int i = (segment_size*idx + offset) / size;
+			int j = segment_size * idx + offset - i * size;
+			if (mat[i*size + k] != INF && mat[k*size + j] != INF) {
+				const int sum = mat[i*size + k] + mat[k*size + j];
+				if (mat[i*size + j] == INF || sum < mat[i*size + j]) {
+					mat[i*size + j] = sum;
+					path[i*size + j] = path[k*size + j];
+				}
+			}
+		}
+	}
+}
+
+
+
+// Each thread will access 'segment_size' values to improve coalescing.
+// Each block now handles thread_per_block * segment_size values.
+// Hence the number of blocks needed is size*size/(segment_size*thread_per_block).
+void Floyd_Warshall_COA(const std::shared_ptr<int[]>& matrix, const std::shared_ptr<int[]>& path,
+	const unsigned size, int thread_per_block, float* time)
 {
 	cudaEvent_t start, stop;
+
+	const int memSize = sizeof(int) * size * size;
+
+	// Calculate the threads segment/block size
+	const auto segmentSize = MAX_REGISTERS / 2;
+
 
 	// Initialize CUDA GPU Timers
 	cudaEventCreate(&start);
@@ -28,25 +68,33 @@ void Floyd_Warshall_COA(int *matrix, int* path, unsigned int size, float* time)
 	// Start CUDA Timer
 	cudaEventRecord(start, nullptr);
 
-	// allocate memory
-	int *matrixOnGPU;
-	int *pathOnGPU;
-	cudaMalloc(reinterpret_cast<void **>(&matrixOnGPU), sizeof(int)*size*size);
-	cudaMemcpy(matrixOnGPU, matrix, sizeof(int)*size*size, cudaMemcpyHostToDevice);
-	cudaMalloc(reinterpret_cast<void **>(&pathOnGPU), sizeof(int)*size*size);
-	cudaMemcpy(pathOnGPU, path, sizeof(int)*size*size, cudaMemcpyHostToDevice);
+	// custom deleter as stateless lambda function
+	const auto deleter = [&](int* ptr) { cudaFree(ptr); };
+
+	// Allocate GPU device arrays
+	std::unique_ptr<int[], decltype(deleter)> matrixOnGPU(new int[memSize], deleter);
+	cudaMallocManaged(reinterpret_cast<void **>(&matrixOnGPU), memSize);
+	std::unique_ptr<int[], decltype(deleter)> pathOnGPU(new int[memSize], deleter);
+	cudaMallocManaged(reinterpret_cast<void **>(&pathOnGPU), memSize);
+
+	// Copy the host data into device arrays
+	cudaMemcpy(matrixOnGPU.get(), matrix.get(), memSize, cudaMemcpyHostToDevice);
+	cudaMemcpy(pathOnGPU.get(), path.get(), memSize, cudaMemcpyHostToDevice);
 
 	// dimension
-	dim3 dimGrid(size / COA_TILE_WIDTH, size / COA_TILE_WIDTH, 1);
-	dim3 dimBlock(COA_TILE_WIDTH, COA_TILE_WIDTH, 1);
+	int num_block = static_cast<int>(ceil(1.0 * size * size / (thread_per_block * segmentSize)));
 
 	// run kernel
-	for (unsigned int k = 0; k < size; ++k)
-		cudaKernel_coa <<< dimGrid, dimBlock >>> (matrixOnGPU, pathOnGPU, size, k);
+	for (unsigned int k = 0; k < size; ++k) {
+		cudaKernel_coa <<< num_block, thread_per_block >>> (matrixOnGPU.get(), pathOnGPU.get(), k, size, segmentSize);
+	}
+
+	// It is very important to synchronize between GPU and CPU data transfers
+	cudaDeviceSynchronize();
 
 	// get result back
-	cudaMemcpy(matrix, matrixOnGPU, sizeof(int)*size*size, cudaMemcpyDeviceToHost);
-	cudaMemcpy(path, pathOnGPU, sizeof(int)*size*size, cudaMemcpyDeviceToHost);
+	cudaMemcpy(matrix.get(), matrixOnGPU.get(), memSize, cudaMemcpyDeviceToHost);
+	cudaMemcpy(path.get(), pathOnGPU.get(), memSize, cudaMemcpyDeviceToHost);
 
 	// Stop CUDA Timer
 	cudaEventRecord(stop, nullptr);
@@ -54,45 +102,15 @@ void Floyd_Warshall_COA(int *matrix, int* path, unsigned int size, float* time)
 	cudaEventSynchronize(stop);
 
 	// Read the elapsed time and release memory
-	cudaEventElapsedTime(*&time, start, stop);
+	cudaEventElapsedTime(time, start, stop);
 	cudaEventDestroy(start);
 	cudaEventDestroy(stop);
 
 
-	// free memory resources
-	cudaFree(matrixOnGPU);
-	cudaFree(pathOnGPU);
+	// Clean up
+	cudaDeviceReset();
 }
 
 
-__global__ void cudaKernel_coa(int *matrix, int* path, int size, int k)
-{
-	// compute indexes
-	const int v = blockDim.y * blockIdx.y + threadIdx.y;
-	const int  u = blockDim.x * blockIdx.x + threadIdx.x;
 
-	const int  i0 = v * size + u;
-	const int  i1 = v * size + k;
-	const int  i2 = k * size + u;
-
-	// read in dependent values
-	const int  i0_value = matrix[i0];
-	const int  i1_value = matrix[i1];
-	const int  i2_value = matrix[i2];
-
-
-	// Synchronize to make sure that all value are current
-	__syncthreads();
-
-	// calculate Floyd-Warshall shortest path
-	if (i1_value != INF && i2_value != INF)
-	{
-		const int sum = i1_value + i2_value;
-		if (i0_value == INF || sum < i0_value)
-		{
-			matrix[i0] = sum;
-			path[i0] = path[i2];
-		}
-	}
-}
 

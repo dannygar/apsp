@@ -38,29 +38,23 @@ float FloydWarshall::RunCudaFWBlocked(Evaluator* eval)
 
 
 // --- Floyd-Warshall with blocked memory optimization
-float FloydWarshall::ComputeCudaBlockedMem() const
+float FloydWarshall::ComputeCudaBlockedMem()
 {
-	// initialize Cost[] and Path[]
-	for (unsigned int v = 0; v < Vertices; v++)
-	{
-		for (unsigned int u = 0; u < Vertices; u++)
-		{
-			if (v == u)
-				Path[v * Vertices + u] = 0;
-			else if (Cost[v * Vertices + u] != INF)
-				Path[v * Vertices + u] = v;
-			else
-				Path[v * Vertices + u] = -1;
-		}
-	}
-
 	float elapsedTime;
+
 
 	// Run Floyd Warshall algorithm
 	// Cost[] and parent[] stores shortest-Path 
 	// (shortest-Cost/shortest route) information
+
+	/* Copy the initial matrices into the compute graph */
+	const auto graph = ReadData(Cost, Vertices);
+
 	/* Compute APSP */
-	Floyd_Warshall_Blocked(Cost, Path, Vertices, &elapsedTime);
+	CudaBlockedFW(graph, &elapsedTime);
+
+	// Copy the results into the original arrays
+	CopyResults(graph);
 
 	return elapsedTime;
 }

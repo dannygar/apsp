@@ -130,6 +130,7 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\evaluator.cpp" />
     <ClCompile Include="src\floyd-warshall-cpu.cpp" />
     <ClCompile Include="src\floyd-warshall-gpu-blocked.cpp" />
     <ClCompile Include="src\floyd-warshall-gpu-coa.cpp" />

@@ -45,11 +45,11 @@ float FloydWarshall::ComputeCudaCoalescedMem() const
 		for (unsigned int u = 0; u < Vertices; u++)
 		{
 			if (v == u)
-				Path[v * Vertices + u] = 0;
-			else if (Cost[v * Vertices + u] != INF)
-				Path[v * Vertices + u] = v;
+				Path.get()[v * Vertices + u] = 0;
+			else if (Cost.get()[v * Vertices + u] != INF)
+				Path.get()[v * Vertices + u] = v;
 			else
-				Path[v * Vertices + u] = -1;
+				Path.get()[v * Vertices + u] = -1;
 		}
 	}
 
@@ -59,7 +59,7 @@ float FloydWarshall::ComputeCudaCoalescedMem() const
 	// Cost[] and parent[] stores shortest-Path 
 	// (shortest-Cost/shortest route) information
 	/* Compute APSP */
-	Floyd_Warshall_COA(Cost, Path, Vertices, &elapsedTime);
+	Floyd_Warshall_COA(Cost, Path, Vertices, Threads, &elapsedTime);
 
 	return elapsedTime;
 }

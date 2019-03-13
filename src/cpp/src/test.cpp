@@ -36,7 +36,7 @@ bool Test::RunTest(Evaluator* eval)
 	pass_ = true;
 	unsigned int cpu_time = 0, gpu_time = 0;
 	const int memSize = sizeof(int) * eval->Vertices * eval->Vertices;
-	int *graph;
+	std::shared_ptr<int[]> graph;
 	std::vector<std::function<float(Evaluator*)>> optimizations = {
 		FloydWarshall::RunNaiveFW,
 		FloydWarshall::RunCudaFW,
@@ -77,7 +77,7 @@ bool Test::RunTest(Evaluator* eval)
 					const int graphSize = sizeof(int) * eval->Vertices * eval->Vertices;
 
 					// pointer to 2D array
-					graph = static_cast<int*>(malloc(graphSize));
+					graph = std::shared_ptr<int[]>(new int[graphSize], std::default_delete<int[]>());
 
 					// Generate a random graph
 					GenerateRandomGraph(graph, eval->Vertices, eval->Density, RANGE);
@@ -94,14 +94,14 @@ bool Test::RunTest(Evaluator* eval)
 					// Save the performance metrics values
 					SavePerformanceMetrics(eval, this->elapsedTime_);
 
-					if (this->elapsedTime_ > 0 && continueEvaluate)
+					if (continueEvaluate)
 						//Evaluate the returning time and increment vertices 
 						continueEvaluate = IncrementWithGradientDescent(eval, &prev_vertices, &eval->Vertices, this->elapsedTime_);
 					else
 						continueEvaluate = false;
 
 					//Release memory
-					free(graph);
+					graph.reset();
 
 					if (continueEvaluate)
 						//release memory in the evaluator's iterator loop
@@ -112,16 +112,13 @@ bool Test::RunTest(Evaluator* eval)
 			{
 				std::cout << "runtime error (" << e.what() << ")" << std::endl;
 				//release memory in case of the exception
+				graph.reset();
 				eval->ReleaseMemory();
 				throw e;
 			}
 
-			//Save the results if the output parameters was provided
-			if (!this->OutputFile.empty())
-				SaveResults(eval);
-
-			// Print results
-			PrintSolution(eval, Verbose);
+			//Print the results if the output parameters was provided
+			PrintSolution(eval, Verbose, OutputFile);
 
 			std::cout << "================================================================================================" << std::endl << std::endl;
 
@@ -133,51 +130,38 @@ bool Test::RunTest(Evaluator* eval)
 	{
 		try
 		{
-			// pointer to 2D array
-			graph = static_cast<int*>(malloc(memSize));
-
-			// Generate a random graph
-			GenerateRandomGraph(graph, eval->Vertices, eval->Density, RANGE);
-
-			////////////////////////////////////////////////////////////
-			// FOR RESULT COMPARISON TESTING ONLY!
-			////////////////////////////////////////////////////////////
-			//int adjMatrix[4][4] =
-			//{
-			//	{ 		0, INF,		 -2, INF },
-			//	{ 		4, 		0, 		 3, INF },
-			//	{ INF, INF, 	 0,		2 },
-			//	{ INF, 		-1, INF, 		0 }
-			//};
-
-			//given adjacency representation of matrix
-			//memcpy(graph, adjMatrix, memSize);
-			////////////////////////////////////////////////////////////
-			// FOR RESULT COMPARISON TESTING ONLY!
-			////////////////////////////////////////////////////////////
-
-			if (Verbose)
-			{
-				std::cout << "Initial graph" << std::endl;
-				for (unsigned int v = 0; v < eval->Vertices; v++)
-				{
-					std::cout << "[" << v << "]: ";
-					for (unsigned int e = 0; e < eval->Vertices; e++)
-					{
-						if (graph[v * eval->Vertices + e] == INF)
-							std::cout << setw(5) << "INF";
-						else
-							std::cout << setw(5) << graph[v * eval->Vertices + e];
-					}
-					std::cout << std::endl;
-				}
-			}
-
 			/////////////////////////////////////////////////////////
 			// Iterate thru all algorithms and evaluate the results
 			/////////////////////////////////////////////////////////
 			for (auto& optimization : optimizations)
 			{
+				// pointer to 2D array
+				graph = std::shared_ptr<int[]>(new int[memSize], std::default_delete<int[]>());
+
+				if(Fixed) // use the fixed 5 vertices graph
+					GenerateFixedMatrix(graph);
+				else
+					// Generate a random graph
+					GenerateRandomGraph(graph, eval->Vertices, eval->Density, RANGE);
+
+
+				if (Verbose)
+				{
+					std::cout << "Initial graph" << std::endl;
+					for (unsigned int v = 0; v < eval->Vertices; v++)
+					{
+						std::cout << "[" << v << "]: ";
+						for (unsigned int e = 0; e < eval->Vertices; e++)
+						{
+							if (graph.get()[v * eval->Vertices + e] == (INF))
+								std::cout << setw(5) << "INF";
+							else
+								std::cout << setw(5) << graph.get()[v * eval->Vertices + e];
+						}
+						std::cout << std::endl;
+					}
+				}
+
 				//Initialize the compute arrays with a new graph
 				eval->InitArrays(graph);
 
@@ -185,17 +169,12 @@ bool Test::RunTest(Evaluator* eval)
 				this->elapsedTime_ = optimization(eval);
 
 				//Evaluate the results
-				if (this->elapsedTime_ > 0)
-					EvaluateAlgorithm(eval, this->elapsedTime_);
+				EvaluateAlgorithm(eval, this->elapsedTime_);
 
-				if (this->elapsedTime_ > 0 && pass_)
+				if (pass_)
 				{
-					//Save the results if the output parameters was provided
-					if (!this->OutputFile.empty())
-						SaveResults(eval);
-
-					// Print results
-					PrintSolution(eval, Verbose);
+					//Print the results if the output parameters was provided
+					PrintSolution(eval, Verbose, OutputFile);
 				}
 				else
 					pass_ = false;
@@ -203,13 +182,18 @@ bool Test::RunTest(Evaluator* eval)
 				//Release memory
 				eval->ReleaseMemory();
 
+				// Release memory
+				graph.reset();
+
 				std::cout << "--------------------------------------------------" << std::endl;
 			}
+
 		}
 		catch (runtime_error &e)
 		{
 			std::cout << "runtime error (" << e.what() << ")" << std::endl;
 			//release memory in case of the exception
+			graph.reset();
 			eval->ReleaseMemory();
 			throw e;
 		}
@@ -274,58 +258,6 @@ bool Test::EvaluateAlgorithm(Evaluator* eval, float elapsedTime)
 
 
 
-
-/////////////////////////////
-// Print to the output file
-void Test::SaveResults(Evaluator* eval) const
-{
-	ofstream outFile(OutputFile);
-	if (outFile.is_open())
-	{
-		outFile << eval->Name;
-		outFile << " Performance = " << eval->Vertices / elapsedTime_ << " vertices/sec, Time = ";
-		if (elapsedTime_ < 1)
-		{
-			outFile << elapsedTime_ * 1000.0f << "(ms), Processor = " << eval->Name << endl;
-		}
-		else
-		{
-			outFile << elapsedTime_ << "(sec), Processor = " << eval->Name << endl;
-		}
-
-		for (unsigned int v = 0; v < eval->Vertices; v++)
-		{
-			for (unsigned int u = 0; u < eval->Vertices; u++)
-			{
-				if (eval->Cost[v * eval->Vertices + u] == INT_MAX)
-					outFile << setw(5) << "INF";
-				else
-					outFile << setw(5) << eval->Cost[v * eval->Vertices + u];
-			}
-			outFile << endl;
-		}
-
-		outFile << endl;
-
-		for (unsigned int v = 0; v < eval->Vertices; v++)
-		{
-			for (unsigned int u = 0; u < eval->Vertices; u++)
-			{
-				if (u != v && eval->Path[v * eval->Vertices + u] != -1)
-				{
-					outFile << "Shortest Path from vertex " << v <<
-						" to vertex " << u << " is (" << v << " ";
-					PrintPath(eval->Path, v, u, eval->Vertices);
-					outFile << u << ") with the cost of: " << eval->Cost[v * eval->Vertices + u] << endl;
-				}
-			}
-		}
-
-		outFile.close();
-	}
-	else
-		cout << "Unable to open file";
-}
 
 
 

@@ -29,6 +29,7 @@ private:
 		Test(const Test& cp) :
 			Device(cp.Device),
 			IsGpu(cp.IsGpu),
+			Fixed(cp.Fixed),
 			Verbose(cp.Verbose),
 			TargetLoop(cp.TargetLoop),
 			OutputFile(cp.OutputFile)
@@ -40,13 +41,13 @@ private:
 
 		int				Device{};
 		bool			IsGpu{};
+		bool			Fixed{};
 		bool			Verbose{};
 		bool			TargetLoop{};
 		std::string		OutputFile{};
 
 
 		bool RunTest(Evaluator* eval);
-		void SaveResults(Evaluator* eval) const;
 
 		static bool EvaluateAlgorithm(Evaluator* eval, float elapsedTime);
 		static void SavePerformanceMetrics(Evaluator* eval, const float elapsedTime);
@@ -55,12 +56,11 @@ private:
 };
 
 // Defaults are arbitrary to give sensible runtime
+#define K_DEF_VERTICES		5 //default num of vertices in the fixed graph
 #define TARGET_TIME			2 //seconds
-#define	INF					INT_MAX
 #define RANGE				100
 #define K_STEP_RATE			0.20	// incremental step rate 
 #define K_ALPHA				0.02	// the boundary limits of the vertices increment
 #define K_DISPLAY_ROWS		5		// number of rows to skip when displaying the results, if verbose flag is not present
-
 
 #endif

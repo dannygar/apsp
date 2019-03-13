@@ -9,17 +9,331 @@
  *
  * Floyd-Warshall with blocked memory optimization
  */
+#include <cstdio>
 #include "cuda.h"
-#include <cuda_runtime.h>
+#include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
 #include "cuda/inc/Floyd.cuh"
 #include "inc/test.h"
 
 
-void Floyd_Warshall_Blocked(int *matrix, int* path, unsigned int size, float* time)
-{
-	const int stages = size / BLCK_TILE_WIDTH;
+
+
+
+
+/**
+ * Blocked CUDA kernel implementation algorithm Floyd Wharshall for APSP
+ * Dependent phase 1
+ *
+ * @param blockId: Index of block
+ * @param nvertex: Number of all vertex in graph
+ * @param pitch: Length of row in memory
+ * @param graph: Array of graph with distance between vertex on device
+ * @param pred: Array of predecessors for a graph on device
+ */
+static __global__
+void _blocked_fw_dependent_ph(const int blockId, size_t pitch, const int nvertex, int* const graph, int* const pred) {
+	__shared__ int cacheGraph[BLOCK_SIZE][BLOCK_SIZE];
+	__shared__ int cachePred[BLOCK_SIZE][BLOCK_SIZE];
+
+	const int idx = threadIdx.x;
+	const int idy = threadIdx.y;
+
+	const int v1 = BLOCK_SIZE * blockId + idy;
+	const int v2 = BLOCK_SIZE * blockId + idx;
+
+	int newPred;
+	int newPath;
+
+	const int cellId = v1 * pitch + v2;
+	if (v1 < nvertex && v2 < nvertex) {
+		cacheGraph[idy][idx] = graph[cellId];
+		cachePred[idy][idx] = pred[cellId];
+		newPred = cachePred[idy][idx];
+	}
+	else {
+		cacheGraph[idy][idx] = (INF);
+		cachePred[idy][idx] = -1;
+	}
+
+	// Synchronize to make sure the all value are loaded in block
+	__syncthreads();
+
+#pragma unroll
+	for (int u = 0; u < BLOCK_SIZE; ++u) {
+		newPath = cacheGraph[idy][u] + cacheGraph[u][idx];
+
+		// Synchronize before calculate new value
+		__syncthreads();
+		if (newPath < cacheGraph[idy][idx]) {
+			cacheGraph[idy][idx] = newPath;
+			newPred = cachePred[u][idx];
+		}
+
+		// Synchronize to make sure that all value are current
+		__syncthreads();
+		cachePred[idy][idx] = newPred;
+	}
+
+	if (v1 < nvertex && v2 < nvertex) {
+		graph[cellId] = cacheGraph[idy][idx];
+		pred[cellId] = cachePred[idy][idx];
+	}
+}
+
+/**
+ * Blocked CUDA kernel implementation algorithm Floyd Wharshall for APSP
+ * Partial dependent phase 2
+ *
+ * @param blockId: Index of block
+ * @param nvertex: Number of all vertex in graph
+ * @param pitch: Length of row in memory
+ * @param graph: Array of graph with distance between vertex on device
+ * @param pred: Array of predecessors for a graph on device
+ */
+static __global__
+void _blocked_fw_partial_dependent_ph(const int blockId, size_t pitch, const int nvertex, int* const graph, int* const pred) {
+	if (blockIdx.x == blockId) return;
+
+	const int idx = threadIdx.x;
+	const int idy = threadIdx.y;
+
+	int v1 = BLOCK_SIZE * blockId + idy;
+	int v2 = BLOCK_SIZE * blockId + idx;
+
+	__shared__ int cacheGraphBase[BLOCK_SIZE][BLOCK_SIZE];
+	__shared__ int cachePredBase[BLOCK_SIZE][BLOCK_SIZE];
+
+	// Load base block for graph and predecessors
+	int cellId = v1 * pitch + v2;
+
+	if (v1 < nvertex && v2 < nvertex) {
+		cacheGraphBase[idy][idx] = graph[cellId];
+		cachePredBase[idy][idx] = pred[cellId];
+	}
+	else {
+		cacheGraphBase[idy][idx] = (INF);
+		cachePredBase[idy][idx] = -1;
+	}
+
+	// Load i-aligned singly dependent blocks
+	if (blockIdx.y == 0) {
+		v2 = BLOCK_SIZE * blockIdx.x + idx;
+	}
+	else {
+		// Load j-aligned singly dependent blocks
+		v1 = BLOCK_SIZE * blockIdx.x + idy;
+	}
+
+	__shared__ int cacheGraph[BLOCK_SIZE][BLOCK_SIZE];
+	__shared__ int cachePred[BLOCK_SIZE][BLOCK_SIZE];
+
+	// Load current block for graph and predecessors
+	int currentPath;
+	int currentPred;
+
+	cellId = v1 * pitch + v2;
+	if (v1 < nvertex && v2 < nvertex) {
+		currentPath = graph[cellId];
+		currentPred = pred[cellId];
+	}
+	else {
+		currentPath = (INF);
+		currentPred = -1;
+	}
+	cacheGraph[idy][idx] = currentPath;
+	cachePred[idy][idx] = currentPred;
+
+	// Synchronize to make sure the all value are saved in cache
+	__syncthreads();
+
+	int newPath;
+	// Compute i-aligned singly dependent blocks
+	if (blockIdx.y == 0) {
+#pragma unroll
+		for (int u = 0; u < BLOCK_SIZE; ++u) {
+			newPath = cacheGraphBase[idy][u] + cacheGraph[u][idx];
+
+			if (newPath < currentPath) {
+				currentPath = newPath;
+				currentPred = cachePred[u][idx];
+			}
+			// Synchronize to make sure that all threads compare new value with old
+			__syncthreads();
+
+			// Update new values
+			cacheGraph[idy][idx] = currentPath;
+			cachePred[idy][idx] = currentPred;
+
+			// Synchronize to make sure that all threads update cache
+			__syncthreads();
+		}
+	}
+	else {
+		// Compute j-aligned singly dependent blocks
+#pragma unroll
+		for (int u = 0; u < BLOCK_SIZE; ++u) {
+			newPath = cacheGraph[idy][u] + cacheGraphBase[u][idx];
+
+			if (newPath < currentPath) {
+				currentPath = newPath;
+				currentPred = cachePredBase[u][idx];
+			}
+
+			// Synchronize to make sure that all threads compare new value with old
+			__syncthreads();
+
+			// Update new values
+			cacheGraph[idy][idx] = currentPath;
+			cachePred[idy][idx] = currentPred;
+
+			// Synchronize to make sure that all threads update cache
+			__syncthreads();
+		}
+	}
+
+	if (v1 < nvertex && v2 < nvertex) {
+		graph[cellId] = currentPath;
+		pred[cellId] = currentPred;
+	}
+}
+
+/**
+ * Blocked CUDA kernel implementation algorithm Floyd Wharshall for APSP
+ * Independent phase 3
+ *
+ * @param blockId: Index of block
+ * @param nvertex: Number of all vertex in graph
+ * @param pitch: Length of row in memory
+ * @param graph: Array of graph with distance between vertex on device
+ * @param pred: Array of predecessors for a graph on device
+ */
+static __global__
+void _blocked_fw_independent_ph(const int blockId, size_t pitch, const int nvertex, int* const graph, int* const pred) {
+	if (blockIdx.x == blockId || blockIdx.y == blockId) return;
+
+	const int idx = threadIdx.x;
+	const int idy = threadIdx.y;
+
+	const int v1 = blockDim.y * blockIdx.y + idy;
+	const int v2 = blockDim.x * blockIdx.x + idx;
+
+	__shared__ int cacheGraphBaseRow[BLOCK_SIZE][BLOCK_SIZE];
+	__shared__ int cacheGraphBaseCol[BLOCK_SIZE][BLOCK_SIZE];
+	__shared__ int cachePredBaseRow[BLOCK_SIZE][BLOCK_SIZE];
+
+	int v1Row = BLOCK_SIZE * blockId + idy;
+	int v2Col = BLOCK_SIZE * blockId + idx;
+
+	// Load data for block
+	int cellId;
+	if (v1Row < nvertex && v2 < nvertex) {
+		cellId = v1Row * pitch + v2;
+
+		cacheGraphBaseRow[idy][idx] = graph[cellId];
+		cachePredBaseRow[idy][idx] = pred[cellId];
+	}
+	else {
+		cacheGraphBaseRow[idy][idx] = (INF);
+		cachePredBaseRow[idy][idx] = -1;
+	}
+
+	if (v1 < nvertex && v2Col < nvertex) {
+		cellId = v1 * pitch + v2Col;
+		cacheGraphBaseCol[idy][idx] = graph[cellId];
+	}
+	else {
+		cacheGraphBaseCol[idy][idx] = (INF);
+	}
+
+	// Synchronize to make sure the all value are loaded in virtual block
+	__syncthreads();
+
+	int currentPath;
+	int currentPred;
+	int newPath;
+
+	// Compute data for block
+	if (v1 < nvertex && v2 < nvertex) {
+		cellId = v1 * pitch + v2;
+		currentPath = graph[cellId];
+		currentPred = pred[cellId];
+
+#pragma unroll
+		for (int u = 0; u < BLOCK_SIZE; ++u) {
+			newPath = cacheGraphBaseCol[idy][u] + cacheGraphBaseRow[u][idx];
+			if (currentPath > newPath) {
+				currentPath = newPath;
+				currentPred = cachePredBaseRow[u][idx];
+			}
+		}
+		graph[cellId] = currentPath;
+		pred[cellId] = currentPred;
+	}
+}
+
+
+
+/**
+ * Allocate memory on device and copy memory from host to device
+ * @param dataHost: Reference to unique ptr to graph data with allocated fields on host
+ * @param graphDevice: Pointer to array of graph with distance between vertex on device
+ * @param pathDevice: Pointer to array of predecessors for a graph on device
+ *
+ * @return: Pitch for allocation
+ */
+static
+size_t _cudaMoveMemoryToDevice(const std::unique_ptr<APSPGraph>& dataHost, int **graphDevice, int **pathDevice) {
+	size_t height = dataHost->vertices;
+	size_t width = height * sizeof(int);
+	size_t pitch;
+
+	// Allocate GPU buffers for matrix of shortest paths d(G) and predecessors p(G)
+	HANDLE_ERROR(cudaMallocPitch(graphDevice, &pitch, width, height));
+	HANDLE_ERROR(cudaMallocPitch(pathDevice, &pitch, width, height));
+
+	// Copy input from host memory to GPU buffers and
+	HANDLE_ERROR(cudaMemcpy2D(*graphDevice, pitch,
+		dataHost->graph.get(), width, width, height, cudaMemcpyHostToDevice));
+	HANDLE_ERROR(cudaMemcpy2D(*pathDevice, pitch,
+		dataHost->path.get(), width, width, height, cudaMemcpyHostToDevice));
+
+	return pitch;
+}
+
+/**
+ * Copy memory from device to host and free device memory
+ *
+ * @param graphDevice: Array of graph with distance between vertex on device
+ * @param pathDevice: Array of predecessors for a graph on device
+ * @param dataHost: Reference to unique ptr to graph data with allocated fields on host
+ * @param pitch: Pitch for allocation
+ */
+static
+void _cudaMoveMemoryToHost(int *graphDevice, int *pathDevice, const std::unique_ptr<APSPGraph>& dataHost, size_t pitch) {
+	size_t height = dataHost->vertices;
+	size_t width = height * sizeof(int);
+
+	HANDLE_ERROR(cudaMemcpy2D(dataHost->path.get(), width, pathDevice, pitch, width, height, cudaMemcpyDeviceToHost));
+	HANDLE_ERROR(cudaMemcpy2D(dataHost->graph.get(), width, graphDevice, pitch, width, height, cudaMemcpyDeviceToHost));
+
+	HANDLE_ERROR(cudaFree(pathDevice));
+	HANDLE_ERROR(cudaFree(graphDevice));
+}
+
+
+
+
+/**
+  * Blocked implementation of Floyd Warshall algorithm in CUDA
+  *
+  * @param time
+  * @param dataHost: unique ptr to graph data with allocated fields on host
+  */
+void CudaBlockedFW(const std::unique_ptr<APSPGraph>& dataHost, float* time) {
+	int nvertex = dataHost->vertices;
+	int *graphDevice, *pathDevice;
 
 	cudaEvent_t start, stop;
 
@@ -30,33 +344,32 @@ void Floyd_Warshall_Blocked(int *matrix, int* path, unsigned int size, float* ti
 	// Start CUDA Timer
 	cudaEventRecord(start, nullptr);
 
-	// allocate memory
-	int *matrixOnGPU;
-	int *pathOnGPU;
-	cudaMalloc(reinterpret_cast<void **>(&matrixOnGPU), sizeof(int)*size*size);
-	cudaMemcpy(matrixOnGPU, matrix, sizeof(int)*size*size, cudaMemcpyHostToDevice);
-	cudaMalloc(reinterpret_cast<void **>(&pathOnGPU), sizeof(int)*size*size);
-	cudaMemcpy(pathOnGPU, path, sizeof(int)*size*size, cudaMemcpyHostToDevice);
+	size_t pitch = _cudaMoveMemoryToDevice(dataHost, &graphDevice, &pathDevice);
 
-	// dimensions
-	dim3 blockSize(BLCK_TILE_WIDTH, BLCK_TILE_WIDTH, 1);
-	dim3 phase1Grid(1, 1, 1);
-	dim3 phase2Grid(stages, 2, 1);
-	dim3 phase3Grid(stages, stages, 1);
+	dim3 gridPhase1(1, 1, 1);
+	dim3 gridPhase2((nvertex - 1) / BLOCK_SIZE + 1, 2, 1);
+	dim3 gridPhase3((nvertex - 1) / BLOCK_SIZE + 1, (nvertex - 1) / BLOCK_SIZE + 1, 1);
+	dim3 dimBlockSize(BLOCK_SIZE, BLOCK_SIZE, 1);
 
-	// run kernel
-	for (int k = 0; k < stages; ++k)
-	{
-		const int base = BLCK_TILE_WIDTH * k;
-		phase1 << < phase1Grid, blockSize >> > (matrixOnGPU, pathOnGPU, size, base);
-		phase2 << < phase2Grid, blockSize >> > (matrixOnGPU, pathOnGPU, size, k, base);
-		phase3 << < phase3Grid, blockSize >> > (matrixOnGPU, pathOnGPU, size, k, base);
+	int numBlock = (nvertex - 1) / BLOCK_SIZE + 1;
+
+	for (int blockID = 0; blockID < numBlock; ++blockID) {
+		// Start dependent phase
+		_blocked_fw_dependent_ph << <gridPhase1, dimBlockSize >> >
+			(blockID, pitch / sizeof(int), nvertex, graphDevice, pathDevice);
+
+		// Start partially dependent phase
+		_blocked_fw_partial_dependent_ph << <gridPhase2, dimBlockSize >> >
+			(blockID, pitch / sizeof(int), nvertex, graphDevice, pathDevice);
+
+		// Start independent phase
+		_blocked_fw_independent_ph << <gridPhase3, dimBlockSize >> >
+			(blockID, pitch / sizeof(int), nvertex, graphDevice, pathDevice);
 	}
 
-	// get result back
-	cudaMemcpy(matrix, matrixOnGPU, sizeof(int)*size*size, cudaMemcpyDeviceToHost);
-	cudaMemcpy(path, pathOnGPU, sizeof(int)*size*size, cudaMemcpyDeviceToHost);
-
+	// Check for any errors launching the kernel
+	HANDLE_ERROR(cudaDeviceSynchronize());
+	_cudaMoveMemoryToHost(graphDevice, pathDevice, dataHost, pitch);
 
 	// Stop CUDA Timer
 	cudaEventRecord(stop, nullptr);
@@ -64,193 +377,11 @@ void Floyd_Warshall_Blocked(int *matrix, int* path, unsigned int size, float* ti
 	cudaEventSynchronize(stop);
 
 	// Read the elapsed time and release memory
-	cudaEventElapsedTime(*&time, start, stop);
+	cudaEventElapsedTime(time, start, stop);
 	cudaEventDestroy(start);
 	cudaEventDestroy(stop);
 
-	// free memory resources
-	cudaFree(matrixOnGPU);
-	cudaFree(pathOnGPU);
-}
+	// Clean up
+	cudaDeviceReset();
 
-
-
-
-/*
- * This kernel computes the first phase (self-dependent block)
- *
- * @param matrix A pointer to the adjacency matrix
- * @param matrix A pointer to the path matrix
- * @param size   The width of the matrix
- * @param base   The base index for a block
- */
-__global__ void phase1(int *matrix, int* path, int size, int base)
-{
-	// compute indexes
-	const int v = threadIdx.y;
-	const int u = threadIdx.x;
-
-	// computes the index for a thread
-	const int index = (base + v) * size + (base + u);
-
-	// loads data from global memory to shared memory
-	__shared__ int subMatrix[BLCK_TILE_WIDTH][BLCK_TILE_WIDTH];
-	subMatrix[v][u] = matrix[index];
-	__shared__ int subPath[BLCK_TILE_WIDTH][BLCK_TILE_WIDTH];
-	subPath[v][u] = path[index];
-	__syncthreads();
-
-
-
-	// calculate shortest path
-	for (int k = 0; k < BLCK_TILE_WIDTH; ++k)
-	{
-		// read in dependent values
-		const int i0_value = subMatrix[v][u];
-		const int i1_value = subMatrix[v][k];
-		const int i2_value = subMatrix[k][u];
-
-		if (i1_value != INF && i2_value != INF)
-		{
-			const int sum = i1_value + i2_value;
-			if (i0_value == INF || sum < i0_value)
-			{
-				subMatrix[v][u] = sum;
-				subPath[v][u] = subPath[k][u];
-			}
-		}
-	}
-
-	// write back to global memory
-	matrix[index] = subMatrix[v][u];
-	path[index] = subPath[v][u];
-}
-
-/*
- * This kernel computes the second phase (singly-dependent blocks)
- *
- * @param matrix A pointer to the adjacency matrix
- * @param matrix A pointer to the path matrix
- * @param size   The width of the matrix
- * @param stage  The current stage of the algorithm
- * @param base   The base index for a block
- */
-__global__ void phase2(int *matrix, int* path, int size, int stage, int base)
-{
-	// computes the index for a thread
-	if (blockIdx.x == stage) return;
-
-	// compute indexes
-	int v, u;
-	const int v_prim = base + threadIdx.y;
-	const int u_prim = base + threadIdx.x;
-	if (blockIdx.y) // load for column
-	{
-		v = BLCK_TILE_WIDTH * blockIdx.x + threadIdx.y;
-		u = u_prim;
-	}
-	else { // load for row
-		u = BLCK_TILE_WIDTH * blockIdx.x + threadIdx.x;
-		v = v_prim;
-	}
-	const int index = v * size + u;
-	const int index_prim = v_prim * size + u_prim;
-
-	// loads data from global memory to shared memory
-	__shared__ int ownMatrix[BLCK_TILE_WIDTH][BLCK_TILE_WIDTH];
-	__shared__ int primaryMatrix[BLCK_TILE_WIDTH][BLCK_TILE_WIDTH];
-	ownMatrix[threadIdx.y][threadIdx.x] = matrix[index];
-	primaryMatrix[threadIdx.y][threadIdx.x] = matrix[index_prim];
-	__syncthreads();
-
-	// loads data from global memory to shared memory
-	__shared__ int ownPath[BLCK_TILE_WIDTH][BLCK_TILE_WIDTH];
-	__shared__ int primaryPath[BLCK_TILE_WIDTH][BLCK_TILE_WIDTH];
-	ownPath[threadIdx.y][threadIdx.x] = path[index];
-	primaryPath[threadIdx.y][threadIdx.x] = path[index_prim];
-	__syncthreads();
-
-
-	// calculate shortest path
-	for (int k = 0; k < BLCK_TILE_WIDTH; ++k)
-	{
-		// read in dependent values
-		const int i0_value = ownMatrix[threadIdx.y][threadIdx.x];
-		const int i1_value = ownMatrix[threadIdx.y][k];
-		const int i2_value = primaryMatrix[k][threadIdx.x];
-
-		if (i1_value != INF && i2_value != INF)
-		{
-			const int sum = i1_value + i2_value;
-			if (i0_value == INF || sum < i0_value)
-			{
-				ownMatrix[threadIdx.y][threadIdx.x] = sum;
-				ownPath[threadIdx.y][threadIdx.x] = primaryPath[k][threadIdx.x];
-			}
-		}
-	}
-
-	// write back to global memory
-	matrix[index] = ownMatrix[threadIdx.y][threadIdx.x];
-	path[index] = ownPath[threadIdx.y][threadIdx.x];
-}
-
-
-/*
- * This kernel computes the third phase (doubly-dependent blocks)
- *
- * @param matrix A pointer to the adjacency matrix
- * @param matrix A pointer to the path matrix
- * @param size   The width of the matrix
- * @param stage  The current stage of the algorithm
- * @param base   The base index for a block
- */
-__global__ void phase3(int *matrix, int* path, int size, int stage, int base)
-{
-	// computes the index for a thread
-	if (blockIdx.x == stage || blockIdx.y == stage) return;
-
-	// compute indexes
-	const int v = BLCK_TILE_WIDTH * blockIdx.y + threadIdx.y;
-	const int u = BLCK_TILE_WIDTH * blockIdx.x + threadIdx.x;
-	const int v_row = base + threadIdx.y;
-	const int u_col = base + threadIdx.x;
-	const int index = v * size + u;
-	const int index_row = v_row * size + u;
-	const int index_col = v * size + u_col;
-
-	// loads data from global memory into shared memory
-	__shared__ int rowMatrix[BLCK_TILE_WIDTH][BLCK_TILE_WIDTH];
-	__shared__ int colMatrix[BLCK_TILE_WIDTH][BLCK_TILE_WIDTH];
-	int v_u = matrix[index];
-	rowMatrix[threadIdx.y][threadIdx.x] = matrix[index_row];
-	colMatrix[threadIdx.y][threadIdx.x] = matrix[index_col];
-	__syncthreads();
-
-	__shared__ int rowPath[BLCK_TILE_WIDTH][BLCK_TILE_WIDTH];
-	int i_j = path[index];
-	rowPath[threadIdx.y][threadIdx.x] = path[index_row];
-	__syncthreads();
-
-	for (int k = 0; k < BLCK_TILE_WIDTH; ++k)
-	{
-		// read in dependent values
-		const int i0_value = v_u;
-		const int i1_value = colMatrix[threadIdx.y][k];
-		const int i2_value = rowMatrix[k][threadIdx.x];
-
-		if (i1_value != INF && i2_value != INF)
-		{
-			const int sum = i1_value + i2_value;
-			if (i0_value == INF || sum < i0_value)
-			{
-				v_u = sum;
-				i_j = rowPath[k][threadIdx.x];
-			}
-		}
-	}
-
-	// write back to global memory
-	matrix[index] = v_u;
-	path[index] = i_j;
 }

@@ -123,50 +123,60 @@ void runTest(int argc, const char **argv)
 		Test test;
 		int deviceCount = 0;
 		unsigned int vertices;
-		unsigned int density;
+		unsigned int density = 0;
 		unsigned int targetTime = TARGET_TIME;
+		cudaDeviceProp deviceProps;
 
 		char *value = nullptr;
 
-		if (getCmdLineArgumentString(argc, argv, "vertices", &value))
+		if (getCmdLineArgumentString(argc, argv, "fixed", &value))
 		{
-			vertices = static_cast<unsigned int>(atoi(value));
+			test.Fixed = true;
+			vertices = K_DEF_VERTICES;
+			std::cout << "Fixed vertices = true" << std::endl;
 			std::cout << "number of vertices = " << vertices << std::endl;
+		}
 
-			if (vertices < 1)
+		if (!test.Fixed)
+		{
+			if (getCmdLineArgumentString(argc, argv, "vertices", &value))
 			{
-				std::cout << "specified number of vertices (" << vertices << ") is invalid, must be greater than 0." << std::endl;;
-				throw invalid_argument("sims");
+				vertices = static_cast<unsigned int>(atoi(value));
+				std::cout << "number of vertices = " << vertices << std::endl;
+
+				if (vertices < 1)
+				{
+					std::cout << "specified number of vertices (" << vertices << ") is invalid, must be greater than 0." << std::endl;;
+					throw invalid_argument("sims");
+				}
 			}
-		}
-		else
-		{
-			vertices = 0; // will be incremented gradually until the target time is met
-			//test->TargetLoop = true;
-			test.TargetLoop = true;
-		}
-
-		if (getCmdLineArgumentString(argc, argv, "density", &value))
-		{
-			density = static_cast<unsigned int>(atoi(value));
-			std::cout << "edge density = " << density << std::endl;
-
-			if (density < K_DENSITY_MIN || density > K_DENSITY_MAX)
+			else
 			{
-				std::cout << "specified edges density (" << density << ") is invalid, must be between " << K_DENSITY_MIN << 
-					" and " << K_DENSITY_MAX << "." << std::endl;
-				throw invalid_argument("sims");
+				vertices = 0; // will be incremented gradually until the target time is met
+				test.TargetLoop = true;
 			}
-		}
-		else
-		{
-			density = K_DENSITY_DEF;
+
+			if (getCmdLineArgumentString(argc, argv, "density", &value))
+			{
+				density = static_cast<unsigned int>(atoi(value));
+				std::cout << "edge density = " << density << std::endl;
+
+				if (density < K_DENSITY_MIN || density > K_DENSITY_MAX)
+				{
+					std::cout << "specified edges density (" << density << ") is invalid, must be between " << K_DENSITY_MIN <<
+						" and " << K_DENSITY_MAX << "." << std::endl;
+					throw invalid_argument("sims");
+				}
+			}
+			else
+			{
+				density = K_DENSITY_DEF;
+			}
 		}
 
 
 		if (getCmdLineArgumentString(argc, argv, "output", &value))
 		{
-			//test->OutputFile = value;
 			test.OutputFile = value;
 			std::cout << "Output file = " << test.OutputFile << std::endl;
 		}
@@ -227,13 +237,17 @@ void runTest(int argc, const char **argv)
 				// override the Device ID based on input provided at the command line
 				test.Device = findCudaDevice(argc, static_cast<const char **>(argv));
 			}
+
+			// Obtain the CUDA properties associated with the given GPU device
+			checkCudaErrors(cudaGetDeviceProperties(&deviceProps, test.Device));
+
 		}
 
 		
 
 		//Instantiate the Algorithm evaluator
-		//auto eval = new T(vertices, density, test.Device, targetTime);
-		T eval = { vertices, density, static_cast<unsigned int>(test.Device), targetTime };
+		T eval = { vertices, density, static_cast<unsigned int>(test.Device), targetTime,
+			(test.IsGpu)? deviceProps.maxThreadsPerBlock : 0 };
 
 		// Execute evaluation
 		test.RunTest(&eval);
@@ -272,6 +286,7 @@ void ShowHelp(int argc, const char **argv)
 	cout << "    " << setw(20) << "--target=<N>" << "Specify target time (in seconds) for the test to run" << endl;
 	cout << "    " << setw(20) << "--device=<N>" << "Specify GPU Device to use for execution" << endl;
 	cout << "    " << setw(20) << "--output=<filename>" << "Specify the output file name for the results" << endl;
+	cout << "    " << setw(20) << "--fixed" << "Use the fixed 5 vertices graph. The --vertices and --density arguments will be ignored" << endl;
 	cout << "    " << setw(20) << "--verbose" << "Turn verbose output on" << endl;
 	cout << endl;
 	cout << "    " << setw(20) << "--noprompt" << "Skip prompt before exit" << endl;

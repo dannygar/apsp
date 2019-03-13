@@ -26,9 +26,11 @@ public:
 	 * \param density
 	 * \param device
 	 * \param targetTime
+	 * \param maxOfThreads
 	 */
-	FloydWarshall(unsigned int vertices, unsigned int density, unsigned int device, unsigned int targetTime) :
-		Evaluator(vertices, density, device, targetTime, "Floyd-Warshall")
+	FloydWarshall(unsigned int vertices, unsigned int density, 
+		unsigned int device, unsigned int targetTime, int maxOfThreads) :
+		Evaluator(vertices, density, device, targetTime, "Floyd-Warshall", maxOfThreads)
 	{
 	}
 
@@ -44,11 +46,10 @@ public:
 	 * store in prep (predecessors) and in graph (value for shortest paths)
 	 */
 	float ComputeCpuNaive() const;
-	float ComputeCudaNaive() const;
+	float ComputeCudaNaive();
 	float ComputeCudaCoalescedMem() const;
 	float ComputeCudaSharedMem() const;
-	float ComputeCudaBlockedMem() const;
-
+	float ComputeCudaBlockedMem();
 
 };
 

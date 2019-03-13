@@ -8,15 +8,12 @@
  * is strictly prohibited.
  *
  */
+#pragma once
 
 #ifndef EVALUATOR_H
 #define EVALUATOR_H
 
-#include <cstdlib>
-#include <cstdio>
 #include <string>
-#include <iostream>
-
 #include "algorithm.h"
 
 using namespace std;
@@ -27,67 +24,48 @@ using namespace std;
 #define K_DENSITY_MAX	100
 #define K_DENSITY_DEF	25
 
+/* Maximum distance value for path form
+ * vertex x to vertex y means no path v1 -> v2.
+ * This value should be MAX_INT / 2 - 1
+ * because we should be able to compare path v1 -> v2 with
+ * path v1 -> u -> v2 so adding to value of paths v1 -> u and
+ * u -> v2 should be smaller than maximum int value
+ */
+#define	INF					(1 << 30 - 1)
+
+/* Default structure for graph */
+struct APSPGraph {
+	unsigned int vertices; // number of vertex in graph
+	std::unique_ptr<int[]> path; // predecessors matrix
+	std::unique_ptr<int[]> graph; // graph matrix
+
+	/* Constructor for init fields */
+	APSPGraph(int size) : vertices(size) {
+		const int memSize = sizeof(int) * vertices * vertices;
+		path = std::unique_ptr<int[]>(new int[memSize]);
+		graph = std::unique_ptr<int[]>(new int[memSize]);
+	}
+};
+
 
 class Evaluator
 {
 public:
-	virtual ~Evaluator()
-	{
-		if (InitCounter > 0)
-			ReleaseMemory();
-	};
+	virtual ~Evaluator();
 
-	Evaluator(unsigned int vertices, unsigned int density, unsigned int device, unsigned int targetTime, std::string name)
-	{
-		Vertices = vertices == 0 ? K_VERTICES_MIN : vertices;
-		Density = density;
-		Device = device;
-		TargetTime = targetTime;
-		Name = name;
-		InitCounter = 0;
-	}
+	Evaluator(unsigned int vertices, unsigned int density, unsigned int device, unsigned int targetTime,
+	          std::string name, int threads);
 
-	Evaluator(const Evaluator& other) :
-		Name(other.Name), 
-		Vertices(other.Vertices), 
-		Density(other.Density), 
-		Device(other.Device), 
-		TargetTime(other.TargetTime),
-		Host(other.Host)
-	{
-		Cost = new int[other.Vertices * other.Vertices * sizeof(int)];
-		*Cost = *other.Cost;
-
-		Path = new int[other.Vertices * other.Vertices * sizeof(int)];
-		*Path = *other.Path;
-
-	}
+	Evaluator(const Evaluator& other);
 
 	//Array initialization
-	void InitArrays(int* graph)
-	{
-		InitCounter++;
-		const int memSize = sizeof(int) * Vertices * Vertices;
-		Cost = static_cast<int*>(malloc(memSize));
-		Path = static_cast<int*>(malloc(memSize));
-		memcpy(Cost, graph, memSize);
-		memcpy(Path, graph, memSize);
+	void InitArrays(std::shared_ptr<int[]> graph);
 
-		for (unsigned int i = 0; i < Vertices; ++i)
-		{
-			Path[i * Vertices + i] = -1;
-		}
-	}
+	void ReleaseMemory();
 
-	void ReleaseMemory()
-	{
-		if (InitCounter > 0)
-		{
-			free(Cost);
-			free(Path);
-			InitCounter--;
-		}
-	}
+	void CopyResults(const unique_ptr<APSPGraph>& result);
+
+	static unique_ptr<APSPGraph> ReadData(const std::shared_ptr<int[]>& matrix, unsigned int maxValue);
 
 	string	Name{};
 	Processor Host;
@@ -95,9 +73,8 @@ public:
 
 	// cost[] and parent[] stores shortest-path 
 	// (shortest-cost/shortest route) information
-	// TODO: Replaced with the smart pointers
-	int*	Cost{};
-	int*	Path{};
+	std::shared_ptr<int[]>	Cost{};
+	std::shared_ptr<int[]>	Path{};
 
 	// Vertices Count
 	unsigned int	Vertices{};
@@ -108,9 +85,11 @@ public:
 	//Target time
 	unsigned int	TargetTime{};
 
-
+	// Array initialization counter
 	int				InitCounter{};
 
+	// Threads per block
+	int				Threads{};
 };
 
 

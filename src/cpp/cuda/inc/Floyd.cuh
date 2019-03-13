@@ -12,29 +12,54 @@
 #ifndef FLOYD_CUH
 #define FLOYD_CUH
 
+#include <memory>
 #include <cuda_runtime.h>
+#include "inc/evaluator.h"
 
-#define COA_TILE_WIDTH 32
-#define SH_TILE_WIDTH 256
-#define BLCK_TILE_WIDTH 32
+#define MAX_REGISTERS 256
+#define SH_TILE_WIDTH 32
+#define SH_TILE_HEIGHT 32
+#define BLOCK_SIZE 16
+
+ /**
+  * CUDA handle error, if error occurs print message and exit program
+ *
+ * @param error: CUDA error status
+ */
+#define HANDLE_ERROR(error) { \
+    if (error != cudaSuccess) { \
+        fprintf(stderr, "%s in %s at line %d\n", \
+                cudaGetErrorString(error), __FILE__, __LINE__); \
+        exit(EXIT_FAILURE); \
+    } \
+} \
+
+
+
+
+__device__
+inline int Min(int a, int b) { return a < b ? a : b; }
 
 
 // Naive Cuda
-void Floyd_Warshall(int *matrix, int* path, unsigned int size, float* time);
-__global__ void cudaKernel(int *matrix, int* path, int size, int k);
+void Floyd_Warshall(const std::unique_ptr<APSPGraph>& dataHost, float* time);
 
 // Coalesced Memory optimization
-void Floyd_Warshall_COA(int *matrix, int* path, unsigned int size, float* time);
-__global__ void cudaKernel_coa(int *matrix, int* path, int size, int k);
+void Floyd_Warshall_COA(const std::shared_ptr<int[]>& matrix, const std::shared_ptr<int[]>& path,
+	const unsigned int size, int thread_per_block, float* time);
 
 // Shared Memory optimization
-void Floyd_Warshall_Shared(int *matrix, int* path, unsigned int size, float* time);
+void Floyd_Warshall_Shared(const std::shared_ptr<int[]>& matrix, const std::shared_ptr<int[]>& path,
+	const unsigned int size, float* time);
 __global__ void cudaKernel_shared(int *matrix, int* path, int size, int k);
 
 // Blocked Memory optimization
-void Floyd_Warshall_Blocked(int *matrix, int* path, unsigned int size, float* time);
-__global__ void phase1(int *matrix, int* path, int size, int base);
-__global__ void phase2(int *matrix, int* path, int size, int stage, int base);
-__global__ void phase3(int *matrix, int* path, int size, int stage, int base);
+/**
+ * Blocked implementation of Floyd Warshall algorithm in CUDA
+ *
+ * @param time
+ * @param dataHost: unique ptr to graph data with allocated fields on host
+ */
+void CudaBlockedFW(const std::unique_ptr<APSPGraph>& dataHost, float* time);
 
 #endif
